@@ -2,6 +2,7 @@ import test from 'ava';
 import sinon from 'sinon';
 import { RequestError } from '@octokit/request-error';
 import GitHub from '../lib/plugin/github/GitHub.js';
+import { getSearchQueries } from '../lib/plugin/github/util.js';
 import { factory, runTasks } from './util/index.js';
 import {
   interceptAuthentication,
@@ -23,7 +24,7 @@ test.serial('should check token and perform checks', async t => {
   const options = { github: { release: true, tokenRef, pushRepo } };
   const github = factory(GitHub, { options });
 
-  process.env[tokenRef] = '123'; // eslint-disable-line require-atomic-updates
+  process.env[tokenRef] = '123';
 
   interceptAuthentication();
   interceptCollaborator();
@@ -483,5 +484,64 @@ test.skip('should truncate long body', async t => {
   const { isReleased, releaseUrl } = github.getContext();
   t.true(isReleased);
   t.is(releaseUrl, 'https://github.com/user/repo/releases/tag/2.0.2');
+  exec.restore();
+});
+
+test('should generate search queries correctly', t => {
+  const generateCommit = () => Math.random().toString(36).substring(2, 9);
+  const base = 'repo:owner/repo+type:pr+is:merged';
+  const commits = Array.from({ length: 5 }, generateCommit);
+  const separator = '+';
+
+  const result = getSearchQueries(base, commits, separator);
+
+  // Test case 1: Check if all commits are included in the search queries
+  const allCommitsIncluded = commits.every(commit => result.some(query => query.includes(commit)));
+  t.true(allCommitsIncluded, 'All commits should be included in the search queries');
+
+  // Test case 2: Check if the function respects the 256 character limit
+  const manyCommits = Array.from({ length: 100 }, generateCommit);
+  const longResult = getSearchQueries(base, manyCommits, separator);
+  t.true(longResult.length > 1, 'Many commits should be split into multiple queries');
+  t.true(
+    longResult.every(query => encodeURIComponent(query).length <= 256),
+    'Each query should not exceed 256 characters after encoding'
+  );
+});
+
+test('should create auto-generated discussion', async t => {
+  const options = {
+    git,
+    github: {
+      pushRepo,
+      tokenRef,
+      release: true,
+      releaseName: 'Release ${tagName}',
+      autoGenerate: false,
+      discussionCategoryName: 'Announcement'
+    }
+  };
+  const github = factory(GitHub, { options });
+  const exec = sinon.stub(github.shell, 'exec').callThrough();
+  exec.withArgs('git describe --tags --match=* --abbrev=0').resolves('2.0.1');
+
+  interceptAuthentication();
+  interceptCollaborator();
+  interceptCreate({
+    body: {
+      tag_name: '2.0.2',
+      name: 'Release 2.0.2',
+      generate_release_notes: false,
+      body: null,
+      discussion_category_name: 'Announcement'
+    }
+  });
+
+  await runTasks(github);
+
+  const { isReleased, releaseUrl, discussionUrl } = github.getContext();
+  t.true(isReleased);
+  t.is(releaseUrl, 'https://github.com/user/repo/releases/tag/2.0.2');
+  t.is(discussionUrl, 'https://github.com/user/repo/discussions/1');
   exec.restore();
 });
