@@ -7,10 +7,26 @@ part][2] is configured correctly.
 [GitLab releases][1] work just like GitHub releases:
 
 - Configure `gitlab.release: true`.
-- Obtain a [personal access token][3] (release-it only needs the "api" scope).
+- Obtain a [personal access token][3] (release-it needs the `api` and `self_rotate` scopes).
 - Make sure the token is [available as an environment variable][4].
 
 GitLab Releases do not support pre-releases or drafts.
+
+## Configuration options
+
+| Option                            | Description                                                         |
+| :-------------------------------- | :------------------------------------------------------------------ |
+| `gitlab.release`                  | Set to `false` to skip the GitLab publish step                      |
+| `gitlab.releaseName`              | Set the release name (default: `Release ${version}`)                |
+| `gitlab.releaseNotes`             | Override the release notes with custom notes                        |
+| `gitlab.milestones`               | Associate one or more milestones with a GitLab release              |
+| `gitlab.tokenRef`                 | GitLab token environment variable name (default: `GITLAB_TOKEN`)    |
+| `gitlab.tokenHeader`              | _TODO_                                                              |
+| `gitlab.certificateAuthorityFile` | _TODO_                                                              |
+| `gitlab.secure`                   | _TODO_                                                              |
+| `gitlab.assets`                   | Glob pattern path to assets to add to the GitLab release            |
+| `gitlab.origin`                   | _TODO_                                                              |
+| `gitlab.skipChecks`               | Skip checks on `GITLAB_TOKEN` environment variable and milestone(s) |
 
 ## Prerequisite checks
 
@@ -89,6 +105,36 @@ download from the project's releases page. Example:
 }
 ```
 
+Version 17.2 of Gitlab [started enforcing a new URL format][6] for uploaded assets. If you are using this version (or
+later), you should set the `useIdsForUrls` flag to `true`:
+
+```json
+{
+  "gitlab": {
+    "release": true,
+    "useIdsForUrls": true,
+    "assets": ["dist/*.dmg"]
+  }
+}
+```
+
+### Asset Location
+
+By default release assets are uploaded to the project's Markdown uploads API. If you want to use GitLab's Generic
+packages Repository set `useGenericPackageRepositoryForAssets` flag to true. `useIdsForUrls` is ignored from this API.
+You can set the package name to be uploaded to using `genericPackageRepositoryName` by default the name is `release-it`.
+
+```json
+{
+  "gitlab": {
+    "release": true,
+    "useGenericPackageRepositoryForAssets": true,
+    "genericPackageRepositoryName": "release-it",
+    "assets": ["dist/*.dmg"]
+  }
+}
+```
+
 ## Origin
 
 The `origin` can be set to a string such as `"http://example.org:3000"` to use a different origin from what would be
@@ -109,6 +155,22 @@ specify the root CA certificate with `certificateAuthorityFile`, for example:
 }
 ```
 
+Alternatively, if you want to disable the server certificate verification against the list of supplied CAs, you can set
+the `secure` flag to false:
+
+```json
+{
+  "gitlab": {
+    "release": true,
+    "tokenHeader": "PRIVATE-TOKEN",
+    "secure": false
+  }
+}
+```
+
+The `secure` option is passed down to [got][7], which in turn also forwards it to node's [`https.request`][8] method as
+the `rejectUnauthorized` option. The default value of `rejectUnauthorized` is `true`.
+
 ## Update the latest release
 
 The latest GitLab release can be updated, e.g. to update the releases notes or add release assets.
@@ -127,6 +189,9 @@ release-it --no-increment --no-git --gitlab.release --gitlab.assets=*.zip
 
 [1]: https://docs.gitlab.com/ce/user/project/releases/
 [2]: ./git.md
-[3]: https://gitlab.com/profile/personal_access_tokens
+[3]: https://docs.gitlab.com/ce/user/profile/personal_access_tokens
 [4]: ./environment-variables.md
 [5]: ./changelog.md
+[6]: https://gitlab.com/gitlab-org/gitlab/-/merge_requests/156939
+[7]: https://github.com/sindresorhus/got
+[8]: https://nodejs.org/api/https.html#httpsrequestoptions-callback

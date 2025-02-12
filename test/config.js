@@ -1,5 +1,5 @@
 import test from 'ava';
-import isCI from 'is-ci';
+import { isCI } from 'ci-info';
 import Config from '../lib/config.js';
 import { readJSON } from '../lib/util.js';
 
@@ -101,6 +101,7 @@ test('should expand pre-release shortcut', t => {
   t.deepEqual(config.options.version, {
     increment: 'major',
     isPreRelease: true,
+    preReleaseBase: undefined,
     preReleaseId: 'beta'
   });
 });
@@ -110,6 +111,7 @@ test('should expand pre-release shortcut (preRelease boolean)', t => {
   t.deepEqual(config.options.version, {
     increment: undefined,
     isPreRelease: true,
+    preReleaseBase: undefined,
     preReleaseId: undefined
   });
 });
@@ -119,6 +121,7 @@ test('should expand pre-release shortcut (without increment)', t => {
   t.deepEqual(config.options.version, {
     increment: undefined,
     isPreRelease: true,
+    preReleaseBase: undefined,
     preReleaseId: 'alpha'
   });
 });
@@ -128,6 +131,29 @@ test('should expand pre-release shortcut (including increment and npm.tag)', t =
   t.deepEqual(config.options.version, {
     increment: 'minor',
     isPreRelease: true,
+    preReleaseBase: undefined,
     preReleaseId: 'rc'
   });
+});
+
+test('should use pre-release base', t => {
+  const config = new Config({ increment: 'minor', preRelease: 'next', preReleaseBase: '1' });
+  t.deepEqual(config.options.version, {
+    increment: 'minor',
+    isPreRelease: true,
+    preReleaseBase: '1',
+    preReleaseId: 'next'
+  });
+});
+
+test('should expand pre-release shortcut (snapshot)', t => {
+  const config = new Config({ snapshot: 'feat' });
+  t.deepEqual(config.options.version, {
+    increment: 'prerelease',
+    isPreRelease: true,
+    preReleaseBase: undefined,
+    preReleaseId: 'feat'
+  });
+  t.is(config.options.git.tagMatch, '0.0.0-feat.[0-9]*');
+  t.true(config.options.git.getLatestTagFromAllRefs);
 });

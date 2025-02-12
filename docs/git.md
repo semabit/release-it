@@ -2,18 +2,44 @@
 
 The Git plugin in release-it, by default, does the following:
 
-1.  [Prerequisite checks][1]
-2.  \[Files may be updated by other plugins and/or user commands/hooks]
-3.  `git add . --update`
-4.  `git commit -m "[git.commitMessage]"`
-5.  `git tag --annotate --message="[git.tagAnnotation]" [git.tagName]`
-6.  `git push [git.pushArgs] [git.pushRepo]`
+1. [Prerequisite checks][1]
+2. \[Files may be updated by other plugins and/or user commands/hooks]
+3. `git add . --update`
+4. `git commit -m "[git.commitMessage]"`
+5. `git tag --annotate --message="[git.tagAnnotation]" [git.tagName]`
+6. `git push [git.pushArgs] [git.pushRepo]`
 
 When not in CI mode, release-it will ask for confirmation before each of the commit, tag, and push steps.
 
 Configure the `[git.*]` options to modify the commands accordingly. See [all options and their default values][2].
 
 The minimum required version of Git is v2.0.0.
+
+## Configuration options
+
+| Option                        | Description                                                              |
+| :---------------------------- | :----------------------------------------------------------------------- |
+| `git.changelog`               | Changelog generation command                                             |
+| `git.requireCleanWorkingDir`  | Require that all file changes are committed                              |
+| `git.requireBranch`           | Require that the release is on a particular branch name                  |
+| `git.requireUpstream`         | Require that an upstream remote exists.                                  |
+| `git.requireCommits`          | Stop the process if there are no commits since the previous release      |
+| `git.requireCommitsFail`      | If there are no commits, continue but use exit code `0`                  |
+| `git.commitsPath`             | The path to the directory that should be included in the release changes |
+| `git.addUntrackedFiles`       | Add untracked files to the release commit                                |
+| `git.commit`                  | If `false`, skip the commit release step                                 |
+| `git.commitMessage`           | The message to add to the commit step                                    |
+| `git.commitArgs`              | Provide extra arguments to `git commit`                                  |
+| `git.tag`                     | If `false`, skip the tag release step                                    |
+| `git.tagExclude`              | Override the normal behavior to find the latest tag                      |
+| `git.tagName`                 | Custom tag name, which may not be the same as the (prefixed) version     |
+| `git.tagMatch`                | Override the normal matching behavior to find the latest tag             |
+| `git.getLatestTagFromAllRefs` | Consider all tags (directly reachable or not, sorted by version)         |
+| `git.tagAnnotation`           | Message string for annotating the Git tag                                |
+| `git.tagArgs`                 | Provide extra arguments to `git tag`                                     |
+| `git.push`                    | If `false`, skip the push release step                                   |
+| `git.pushArgs`                | Provided extra arguments to `git push`                                   |
+| `git.pushRepo`                | Remote name or Git URL to push the release to (default `origin`)         |
 
 ## Git remotes
 
@@ -48,9 +74,9 @@ Examples:
 
 Use `git.tagMatch` to override the normal matching behavior to find the latest tag. For instance, when doing a major
 release to find and set the latest major tag, and include all commits in the changelog since this matching tag. Note
-that this represents a glob (not a regex):
+that this represents a [glob][7] (not a regex):
 
-Example: `git.tagMatch: "[0-9]*\.[0-9]*\.[0-9]*"`
+Example: `git.tagMatch: "[0-9]*.[0-9]*.[0-9]*"`
 
 This could also be useful when using a plugin to determine the next tag:
 
@@ -64,16 +90,16 @@ normally used exclusively in pre-releases.
 
 Example: `git.tagExclude: *[-]*`
 
-Note that `git.tagExclude` has no effect when `git.getLatestTagFromAllRefs: true`. See the next section
-[use all refs to determine latest tag](#use-all-refs-to-determine-latest-tag) for more details.
+Note that `git.tagExclude` has no effect when `git.getLatestTagFromAllRefs: true`. See the next section [use all refs to
+determine latest tag][8] for more details.
 
 ## Use all refs to determine latest tag
 
-By default, Git determines the latest tag using [`git describe`](https://git-scm.com/docs/git-describe), which finds the
-most recent tag _that is reachable from a commit._ If you wish to consider all tags, e.g. to include tags that point to
-sibling commits on different branches, then set `git.getLatestTagFromAllRefs: true` (the default is `false`).
+By default, Git determines the latest tag using [`git describe`][9], which finds the most recent tag _that is reachable
+from a commit._ If you wish to consider all tags, e.g. to include tags that point to sibling commits on different
+branches, then set `git.getLatestTagFromAllRefs: true` (the default is `false`).
 
-![Determine latest tag from all refs](assets/git-version-from-all-refs.svg)
+![Determine latest tag from all refs][10]
 
 In the above illustration, releasing from `develop` and incrementing the semver `rc` modifier, when
 `git.getLatestTagFromAllRefs: false` (the default), the latest tag is `v1.1.0-rc1`, because that is the most recent tag
@@ -90,7 +116,7 @@ In case extra arguments should be provided to Git, these options are available:
 - `git.tagArgs`
 - `git.pushArgs`
 
-For example, use `"git.commitArgs": ["-S"]` to sign commits (also see [#35][7]).
+For example, use `"git.commitArgs": ["-S"]` to sign commits (also see [#35][11]).
 
 Note that `["--follow-tags"]` is the default for `pushArgs` (re-add this manually if necessary). Example with multiple
 arguments for `git push`:
@@ -171,7 +197,7 @@ example use case and how it can be handled using release-it:
 By default, release-it does not check the number of commits upfront to prevent "empty" releases. Configure
 `"git.requireCommits": true` to exit the release-it process if there are no commits since the latest tag.
 
-Also see the [Require Commits][8] recipe(s).
+Also see the [Require Commits][12] recipe(s).
 
 ## Further customizations
 
@@ -180,10 +206,12 @@ In case you need even more customizations, here is some inspiration:
 ```json
 {
   "git": {
+    "commitMessage": "chore(release): cut the v${version} release",
     "push": false
   },
   "hooks": {
-    "after:git:release": "git push origin HEAD"
+    "after:bump": ["npm run build"],
+    "after:release": "git push origin HEAD"
   }
 }
 ```
@@ -196,6 +224,10 @@ script.
 [3]: https://docs.github.com/en/authentication/connecting-to-github-with-ssh
 [4]: https://docs.github.com/en/get-started/getting-started-with-git/managing-remote-repositories
 [5]: https://support.atlassian.com/bitbucket-cloud/docs/configure-ssh-and-two-step-verification/
-[6]: https://gitlab.com/help/ssh/README.md
-[7]: https://github.com/release-it/release-it/issues/350
-[8]: ./recipes/require-commits.md
+[6]: https://docs.gitlab.com/ce/user/ssh
+[7]: https://code.visualstudio.com/docs/editor/glob-patterns
+[8]: #use-all-refs-to-determine-latest-tag
+[9]: https://git-scm.com/docs/git-describe
+[10]: assets/git-version-from-all-refs.svg
+[11]: https://github.com/release-it/release-it/issues/350
+[12]: ./recipes/require-commits.md
